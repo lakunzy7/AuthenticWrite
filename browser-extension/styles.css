@@ -1,0 +1,9 @@
+/* AuthentiWrite Content Script Styles */
+.authenticwrite-highlight {
+  background-color: rgba(239, 68, 68, 0.15);
+  border-bottom: 2px solid #ef4444;
+  transition: background-color 0.3s;
+}
+.authenticwrite-highlight:hover {
+  background-color: rgba(239, 68, 68, 0.25);
+}

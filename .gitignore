@@ -1,0 +1,30 @@
+# Dependencies
+frontend/authenticwrite/node_modules/
+__pycache__/
+*.pyc
+
+# Build output
+frontend/authenticwrite/build/
+
+# Model artifacts (large binary files)
+backend/*.pkl
+
+# Uploads
+backend/uploads/
+
+# Environment
+.env
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / tools
+.vscode/
+.idea/
+.blackbox/
+.claude/
+
+# HuggingFace cache
+.cache/
