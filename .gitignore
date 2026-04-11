@@ -25,6 +25,7 @@ Thumbs.db
 .idea/
 .blackbox/
 .claude/
+CLAUDE.md
 
 # HuggingFace cache
 .cache/
