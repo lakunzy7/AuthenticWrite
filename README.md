@@ -1,6 +1,6 @@
 # AuthenticWrite
 
-An AI-generated text detection system built for academic integrity. Paste or upload any document and AuthenticWrite tells you how likely it was written by AI — with a confidence score, stylometric breakdown, and a downloadable PDF report.
+AI-generated text detection system. Paste or upload any document and AuthenticWrite tells you how likely it was written by AI — with a confidence score, writing-quality breakdown, and a downloadable PDF report.
 
 Built as a final-year project at **Federal University Oye-Ekiti**, Department of Computer Science.
 
@@ -8,13 +8,13 @@ Built as a final-year project at **Federal University Oye-Ekiti**, Department of
 
 ## What It Does
 
-- **AI Detection** — Analyzes text using 28 stylometric features + TF-IDF with an ensemble ML model (Random Forest + Gradient Boosting + Logistic Regression)
-- **File Upload** — Supports PDF, DOCX, TXT, CSV, XLSX, code files, and more
+- **AI Detection** — Uses the open-source RoBERTa-based `Hello-SimpleAI/chatgpt-detector-roberta` transformer, trained on the HC3 human-vs-ChatGPT dataset
+- **File Upload** — PDF, DOCX, TXT, CSV, XLSX, code files, and more
 - **Batch Analysis** — Upload up to 20 files at once
-- **Writing Quality** — Readability scores (Flesch-Kincaid, Gunning Fog, etc.), vocabulary richness, and style analysis
-- **Fact Checking** — Extracts and verifies factual claims in text
+- **Writing Quality** — Readability (Flesch-Kincaid, Gunning Fog), vocabulary richness, style analysis
+- **Fact Checking** — Extracts and verifies factual claims
 - **PDF Reports** — Download a detailed analysis report
-- **Browser Extension** — Detect AI-generated content on any webpage directly from Chrome
+- **Browser Extension** — Detect AI content on any webpage directly from Chrome
 
 ---
 
@@ -22,254 +22,235 @@ Built as a final-year project at **Federal University Oye-Ekiti**, Department of
 
 ```
 AuthenticWrite/
-├── backend/                  # Flask API + ML model
+├── backend/                  # Flask API + transformer detector
 │   ├── app.py                # API server (all endpoints)
-│   ├── features.py           # 28 stylometric feature extraction
-│   ├── train_model.py        # Model training script
-│   ├── training_data.py      # Training dataset generator
-│   ├── training_dataset.csv  # Training data
-│   └── requirements.txt      # Python dependencies
-├── frontend/
-│   └── authenticwrite/       # React + TypeScript app
-│       ├── src/
-│       │   ├── App.tsx       # Main app component
-│       │   └── index.tsx     # Entry point
-│       ├── package.json
-│       └── tailwind.config.js
-└── browser-extension/        # Chrome extension (Manifest V3)
-    ├── manifest.json
-    ├── popup.html / popup.js # Extension popup UI
-    ├── content.js            # Content script (runs on webpages)
-    ├── background.js         # Service worker
-    └── styles.css
+│   ├── requirements.txt      # Python dependencies
+│   └── uploads/              # Runtime upload dir (git-ignored)
+├── frontend/authenticwrite/  # React + TypeScript web app (CRA + Tailwind)
+│   ├── src/                  # App source
+│   ├── .env                  # Dev server port (PORT=7000)
+│   └── package.json
+├── browser-extension/        # Chrome extension (Manifest V3)
+└── docs/                     # Design specs
 ```
 
 ---
 
-## How to Set Up (Step by Step)
+## Prerequisites
 
-### What You Need First
+Install these **before** starting:
 
-Before you start, make sure you have these installed on your computer:
-
-| Tool | Version | How to check | Where to get it |
-|------|---------|-------------|-----------------|
-| **Python** | 3.9 or higher | `python --version` | [python.org/downloads](https://www.python.org/downloads/) |
-| **Node.js** | 16 or higher | `node --version` | [nodejs.org](https://nodejs.org/) |
-| **npm** | comes with Node.js | `npm --version` | Installed with Node.js |
-| **Git** | any recent version | `git --version` | [git-scm.com](https://git-scm.com/) |
-| **Google Chrome** | any recent version | — | For the browser extension |
-
-> **Not sure if you have these?** Open your terminal (Command Prompt on Windows, Terminal on Mac/Linux) and run the "How to check" commands above. If you see a version number, you're good. If you see an error, you need to install that tool.
+| Tool       | Minimum version | Notes                                                   |
+|------------|-----------------|---------------------------------------------------------|
+| Python     | 3.10+           | 3.13 tested                                             |
+| Node.js    | 18+             | Bundled npm                                             |
+| Git        | any             |                                                         |
+| Disk space | ~2 GB free      | PyTorch CPU wheel + RoBERTa model + node_modules        |
+| RAM        | 4 GB+           | Detector needs ~1.5 GB resident                         |
+| Internet   | on first run    | To download ~500 MB model from Hugging Face            |
+| Chrome     | optional        | Required only for the browser extension                 |
 
 ---
 
-### Step 1: Get the Code
+## Deployment Guide
 
-Open your terminal and run:
+### 1. Clone the repo
 
 ```bash
 git clone https://github.com/lakunzy7/AuthenticWrite.git
 cd AuthenticWrite
 ```
 
----
+### 2. Set up the backend (Flask + transformer)
 
-### Step 2: Set Up the Backend (Python/Flask)
-
-#### 2a. Create a virtual environment
-
-This keeps the project's packages separate from your system Python. Think of it as a sandbox.
-
-**On Windows:**
-```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate
-```
-
-**On Mac/Linux:**
 ```bash
 cd backend
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate            # On Windows: venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt     # Installs PyTorch CPU + transformers
 ```
 
-> You'll know it worked when you see `(venv)` at the start of your terminal line.
-
-#### 2b. Install Python packages
+First install takes **5–10 minutes** (large wheels). On slow networks use:
 
 ```bash
-pip install -r requirements.txt
+pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 ```
 
-This downloads all the libraries the backend needs (Flask, scikit-learn, NLTK, etc.). It may take a minute or two.
-
-#### 2c. Train the ML model
-
-```bash
-python train_model.py
-```
-
-This reads the training data, builds the AI detection model, and saves three files: `model.pkl`, `vectorizer.pkl`, and `scaler.pkl`. You only need to do this once.
-
-> **What if it shows errors?** Make sure your virtual environment is activated (you see `(venv)` in your terminal). If NLTK data download fails, check your internet connection.
-
-#### 2d. Start the backend server
+### 3. Start the backend
 
 ```bash
 python app.py
 ```
 
-You should see output like:
+Expected output:
+
 ```
- * Running on http://0.0.0.0:5000
+Loading detector model: Hello-SimpleAI/chatgpt-detector-roberta ...
+Detector model ready.
+* Running on http://127.0.0.1:5000
 ```
 
-**Leave this terminal open** — the backend needs to stay running. Open a new terminal for the next steps.
+**First run only:** the model (~500 MB) downloads from Hugging Face into `~/.cache/huggingface/`. Subsequent starts take ~5 seconds.
 
----
+Keep this terminal open and move to the frontend.
 
-### Step 3: Set Up the Frontend (React)
+### 4. Set up the frontend (React)
 
-Open a **new terminal window** and run:
+In a new terminal:
 
 ```bash
 cd frontend/authenticwrite
 npm install
-```
-
-This downloads all the JavaScript packages. It may take a few minutes the first time.
-
-Then start the development server:
-
-```bash
 npm start
 ```
 
-Your browser should automatically open `http://localhost:7000` with the app running.
+App opens at **http://localhost:7000** (port set in `frontend/authenticwrite/.env`).
 
-> The frontend dev server port is pinned to **7000** via `frontend/authenticwrite/.env` (`PORT=7000`). Change that file if you need a different port.
+### 5. (Optional) Install the browser extension
+
+1. Copy the `browser-extension/` folder somewhere permanent (e.g. your Desktop).
+2. Open Chrome → `chrome://extensions/`
+3. Turn on **Developer mode** (top-right toggle).
+4. Click **Load unpacked** → select the copied folder.
+5. Pin the AuthentiWrite icon via the 🧩 menu.
+6. On any webpage, **select text** (50+ characters), click the extension icon, and hit **Analyze Selected Text**. The backend must be running.
+
+> **WSL note:** Load the extension from the *Windows* filesystem, not from `/home/...` — Chrome on Windows cannot reliably load extensions from inside WSL.
 
 ---
 
-### Step 4: Set Up the Browser Extension (Optional)
+## Verifying It Works
 
-This lets you analyze text on any webpage without leaving the page.
+Once both services are running:
 
-1. Open Chrome and go to `chrome://extensions/`
-2. Turn on **Developer mode** (toggle in the top-right corner)
-3. Click **Load unpacked**
-4. Navigate to the `browser-extension` folder inside this project and select it
-5. The AuthenticWrite icon should appear in your browser toolbar
+```bash
+curl -X POST http://localhost:5000/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Your long text goes here, at least 50 characters."}'
+```
 
-> **Important:** The extension talks to the backend at `http://localhost:5000`, so the backend must be running for it to work.
+You should get JSON containing `ai_probability`, `classification`, and `confidence`.
 
 ---
 
 ## Using the App
 
-### Web App (Frontend)
+### Web app
 
-1. Open `http://localhost:7000` in your browser
-2. Paste text into the text box, or upload a file (PDF, DOCX, TXT, etc.)
-3. Click **Analyze** — you'll see:
-   - AI probability percentage
-   - Classification (Likely AI-Generated, Possibly AI-Generated, Possibly Human-Written, Likely Human-Written)
+1. Open **http://localhost:7000**
+2. Paste text or upload a file (PDF, DOCX, TXT, etc.)
+3. Click **Analyze**
+4. Review:
+   - AI probability percentage (0–100)
+   - Classification: Likely AI-Generated / Possibly AI-Generated / Uncertain / Possibly Human-Written / Likely Human-Written
    - Confidence level
-   - Stylometric feature breakdown
-   - Detected patterns
-4. Use the **Quality Analysis** tab for readability scores and writing style metrics
-5. Use the **Fact Check** tab to verify claims in the text
-6. Click **Download Report** to get a PDF of the analysis
+   - Optional writing-quality and fact-check sections
+   - Download a PDF report
 
-### Browser Extension
+### Classification thresholds
 
-1. Highlight text on any webpage
-2. Click the AuthenticWrite icon in your toolbar
-3. The extension will analyze the selected text and show results in a popup
+| AI probability | Classification              | Confidence |
+|----------------|-----------------------------|------------|
+| ≥ 80%          | Likely AI-Generated         | High       |
+| 60–80%         | Possibly AI-Generated       | Medium     |
+| 40–60%         | Uncertain                   | Low        |
+| 20–40%         | Possibly Human-Written      | Medium     |
+| < 20%          | Likely Human-Written        | High       |
 
-### API (For Developers)
+---
 
-The backend exposes a REST API. Key endpoints:
+## API Reference
 
-| Endpoint | Method | What it does |
-|----------|--------|-------------|
-| `/analyze` | POST | Analyze text — send `{"text": "..."}` |
-| `/upload` | POST | Upload a file for text extraction |
-| `/quality-analysis` | POST | Get readability and style scores |
-| `/batch-analyze` | POST | Analyze up to 20 files at once |
-| `/fact-check` | POST | Verify factual claims in text |
-| `/generate-report` | POST | Generate a PDF analysis report |
-| `/health` | GET | Check if the API is running |
-| `/api/docs` | GET | Full API documentation |
+All endpoints run on `http://localhost:5000`.
 
-**Example with curl:**
+| Method | Endpoint            | Description                                             |
+|--------|---------------------|---------------------------------------------------------|
+| POST   | `/analyze`          | Analyze raw text — returns AI probability + metadata    |
+| POST   | `/upload`           | Upload a file and extract its text                      |
+| GET    | `/sample-text`      | Get a sample AI or human text (`?type=ai` / `?type=human`) |
+| POST   | `/fact-check`       | Extract and verify factual claims                       |
+| POST   | `/quality-analysis` | Readability + style metrics                             |
+| POST   | `/batch-analyze`    | Analyze multiple files at once                          |
+| POST   | `/generate-report`  | Produce a downloadable PDF report                       |
 
-```bash
-curl -X POST http://localhost:5000/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Your text to analyze goes here..."}'
+### `/analyze` request
+
+```json
+{ "text": "Your text to analyze (minimum 50 characters)" }
+```
+
+### `/analyze` response
+
+```json
+{
+  "ai_probability": 98.72,
+  "classification": "Likely AI-Generated",
+  "confidence": "High",
+  "text_length": 987,
+  "word_count": 152,
+  "sentence_count": 8,
+  "patterns": ["Overly formal language structure"],
+  "ml_model_used": true,
+  "model": "chatgpt-detector-roberta",
+  "features": {}
+}
 ```
 
 ---
 
-## How the AI Detection Works
+## Model Details
 
-1. **Feature Extraction** — The system extracts 28 stylometric features from the text:
-   - Sentence structure (length, variation, uniformity)
-   - Vocabulary richness (diversity, Yule's K, hapax ratio)
-   - Writing style (personal pronouns, contractions, formal phrases)
-   - Readability (Flesch Reading Ease, Gunning Fog Index)
-   - Entropy measures (Shannon entropy, bigram entropy)
-   - Pattern detection (passive voice, transition word density)
+- **Model:** [`Hello-SimpleAI/chatgpt-detector-roberta`](https://huggingface.co/Hello-SimpleAI/chatgpt-detector-roberta)
+- **Architecture:** RoBERTa-base fine-tuned for binary classification (Human vs ChatGPT)
+- **Training data:** HC3 dataset (Human ChatGPT Comparison Corpus)
+- **Token limit:** 512 tokens per window; longer inputs are chunked with 64-token overlap and results averaged
+- **Runs on:** CPU (GPU optional and much faster if available)
+- **Inference time:** ~0.5–2 s per request on modern CPU
 
-2. **TF-IDF Vectorization** — Converts the text into a numerical representation based on word importance
+Short inputs (< ~100 words) tend to score low even for AI text — the model was trained on full-length responses. For best accuracy, submit at least one paragraph.
 
-3. **Ensemble Model** — Three models vote on the result:
-   - Random Forest
-   - Gradient Boosting
-   - Logistic Regression
+---
 
-4. **Classification** — The combined prediction gives an AI probability score from 0–100%
+## Production Deployment
+
+The built-in Flask dev server is **not** for production. For real deployment:
+
+1. **Use a WSGI server** (Gunicorn recommended):
+   ```bash
+   pip install gunicorn
+   gunicorn -w 2 -b 0.0.0.0:5000 --timeout 60 app:app
+   ```
+   Use only 1–2 workers — each one loads its own copy of the model (~1.5 GB RAM each).
+
+2. **Front with a reverse proxy** (nginx/Caddy) for HTTPS and static serving.
+
+3. **Build the frontend** for production:
+   ```bash
+   cd frontend/authenticwrite
+   npm run build
+   ```
+   Serve the `build/` directory via nginx, or copy it into the Flask app and serve with `send_from_directory`.
+
+4. **Lock down CORS** in `backend/app.py` — replace `CORS(app)` with a specific origin list once you know your deployment domain.
+
+5. **Set `FLASK_DEBUG=0`** (don't run Flask's reloader in prod).
 
 ---
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| `python` command not found | Try `python3` instead (common on Mac/Linux) |
-| `pip` command not found | Try `pip3` or `python -m pip` |
-| "Module not found" errors | Make sure your virtual environment is activated |
-| Backend won't start | Check that port 5000 is free. Try `python app.py` again |
-| Frontend won't start | Delete `node_modules` folder and run `npm install` again |
-| Model files missing | Run `python train_model.py` in the backend folder |
-| NLTK download fails | Check your internet connection and retry |
-| Extension not working | Make sure the backend is running on port 5000 |
-
----
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Backend | Python 3, Flask 3.0, scikit-learn, NLTK, textstat |
-| Frontend | React 19, TypeScript, Tailwind CSS |
-| ML Model | Random Forest + Gradient Boosting + Logistic Regression ensemble |
-| Document Parsing | PyPDF2, python-docx, pandas, openpyxl |
-| Browser Extension | Chrome Manifest V3, vanilla JS |
-| Reports | ReportLab (PDF generation) |
-
----
-
-## Author
-
-**Owofola Olakunle** (FTP/CSC/25/0121610)
-Department of Computer Science, Federal University Oye-Ekiti
+| Symptom                                                             | Fix                                                                                  |
+|---------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| `OSError: No such file or directory: '.../nltk_data/tokenizers/punkt/PY3_tab'` | `pip install --upgrade 'nltk>=3.9'`                                                 |
+| Model download hangs on first run                                   | Check internet; optionally set `HF_TOKEN` env var for higher HF rate limits          |
+| `Something is already running on port 7000`                         | Kill the process: `lsof -ti:7000 \| xargs kill`, or change `PORT` in `frontend/authenticwrite/.env` |
+| Extension says "Could not connect to AuthentiWrite API"             | Make sure backend is running on port 5000 and CORS isn't blocking the extension origin |
+| Backend kills itself right after "Loading detector"                 | Out of RAM. Close other apps or use a machine with 4 GB+ free RAM                    |
+| Chrome can't load extension from `/home/...` (WSL)                  | Copy `browser-extension/` to a Windows path first (e.g. `C:\Users\you\Desktop\`)     |
 
 ---
 
 ## License
 
-This project was built for academic purposes. Feel free to use it as a reference or starting point for your own work.
+MIT

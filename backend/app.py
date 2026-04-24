@@ -1,26 +1,24 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-import pickle
-import numpy as np
 import re
 import string
 import os
 import json
 from collections import Counter
 from io import StringIO, BytesIO
+import numpy as np
 import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import stopwords
-from scipy.sparse import hstack, csr_matrix
+
+import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 # File processing imports
 import PyPDF2
 import docx
 import pandas as pd
-
-# Shared feature extraction
-from features import extract_features, FEATURE_NAMES
 
 # Download required NLTK data
 try:
@@ -125,26 +123,52 @@ def extract_text_from_file(file):
     
     return text
 
-# Load the trained model artifacts
-MODEL_PATH = os.path.join(os.path.dirname(__file__), 'model.pkl')
-VECTORIZER_PATH = os.path.join(os.path.dirname(__file__), 'vectorizer.pkl')
-SCALER_PATH = os.path.join(os.path.dirname(__file__), 'scaler.pkl')
+# Load the transformer-based detector
+DETECTOR_MODEL_NAME = "Hello-SimpleAI/chatgpt-detector-roberta"
+MAX_TOKENS = 512
+CHUNK_STRIDE = 448  # 64-token overlap
 
-try:
-    with open(MODEL_PATH, 'rb') as f:
-        model = pickle.load(f)
-    with open(VECTORIZER_PATH, 'rb') as f:
-        vectorizer = pickle.load(f)
-    with open(SCALER_PATH, 'rb') as f:
-        scaler = pickle.load(f)
-    MODEL_LOADED = True
-except FileNotFoundError:
-    MODEL_LOADED = False
-    scaler = None
-    print("Warning: Model not found. Using rule-based detection.")
+print(f"Loading detector model: {DETECTOR_MODEL_NAME} ...")
+tokenizer = AutoTokenizer.from_pretrained(DETECTOR_MODEL_NAME)
+detector_model = AutoModelForSequenceClassification.from_pretrained(DETECTOR_MODEL_NAME)
+detector_model.eval()
+print("Detector model ready.")
+
+
+def _score_chunk(input_ids, attention_mask):
+    """Run one 512-token chunk through the model and return AI probability."""
+    with torch.no_grad():
+        outputs = detector_model(
+            input_ids=input_ids.unsqueeze(0),
+            attention_mask=attention_mask.unsqueeze(0),
+        )
+    probs = torch.softmax(outputs.logits, dim=-1)[0]
+    # Label 1 = ChatGPT/AI in this model
+    return float(probs[1].item())
+
+
+def _predict_ai_probability(text):
+    """Tokenize, chunk if needed, return mean AI probability in [0, 100]."""
+    enc = tokenizer(text, return_tensors="pt", truncation=False)
+    input_ids = enc["input_ids"][0]
+    attention_mask = enc["attention_mask"][0]
+
+    if input_ids.size(0) <= MAX_TOKENS:
+        prob = _score_chunk(input_ids, attention_mask)
+        return round(prob * 100, 2)
+
+    chunk_probs = []
+    for start in range(0, input_ids.size(0), CHUNK_STRIDE):
+        end = min(start + MAX_TOKENS, input_ids.size(0))
+        chunk_probs.append(_score_chunk(input_ids[start:end], attention_mask[start:end]))
+        if end == input_ids.size(0):
+            break
+    mean_prob = sum(chunk_probs) / len(chunk_probs)
+    return round(mean_prob * 100, 2)
+
 
 def detect_ai_patterns(text):
-    """Detect common patterns in AI-generated text for human-readable feedback."""
+    """Heuristic patterns shown to the user alongside the ML score."""
     patterns = []
     sentences = sent_tokenize(text)
     words = text.split()
@@ -152,9 +176,12 @@ def detect_ai_patterns(text):
 
     if len(sentences) > 3:
         sent_lens = [len(s.split()) for s in sentences]
-        cv = np.std(sent_lens) / np.mean(sent_lens) if np.mean(sent_lens) else 0
-        if cv < 0.3:
-            patterns.append("Unusually uniform sentence lengths")
+        mean_len = sum(sent_lens) / len(sent_lens)
+        if mean_len:
+            variance = sum((x - mean_len) ** 2 for x in sent_lens) / len(sent_lens)
+            cv = (variance ** 0.5) / mean_len
+            if cv < 0.3:
+                patterns.append("Unusually uniform sentence lengths")
 
     formal_phrases = [
         'furthermore', 'moreover', 'consequently', 'therefore', 'additionally',
@@ -173,7 +200,7 @@ def detect_ai_patterns(text):
 
 
 def analyze_text(text):
-    """Main analysis function using the ensemble model."""
+    """Main analysis function using the transformer detector."""
     text = text.strip()
     if len(text) < 50:
         return {
@@ -183,43 +210,24 @@ def analyze_text(text):
             'patterns': []
         }
 
-    # Extract stylometric features (28 features from features.py)
-    stylo_features = extract_features(text)
-    feature_dict = dict(zip(FEATURE_NAMES, stylo_features))
+    try:
+        ai_probability = _predict_ai_probability(text)
+    except Exception as e:
+        print(f"Detector error: {e}")
+        return {'error': f'Detector failed: {e}'}
 
-    # Detect human-readable patterns
     patterns = detect_ai_patterns(text)
 
-    # ML prediction
-    if MODEL_LOADED:
-        try:
-            # Build the same feature vector as training
-            X_stylo = np.array([stylo_features])
-            X_stylo_scaled = scaler.transform(X_stylo)
-            X_tfidf = vectorizer.transform([text])
-            X_combined = hstack([csr_matrix(X_stylo_scaled), X_tfidf])
-
-            proba = model.predict_proba(X_combined)[0]
-            ai_probability = round(proba[1] * 100, 2)
-        except Exception as e:
-            print(f"ML prediction error: {e}")
-            ai_probability = 50.0
+    if ai_probability >= 80:
+        classification, confidence = "Likely AI-Generated", "High"
+    elif ai_probability >= 60:
+        classification, confidence = "Possibly AI-Generated", "Medium"
+    elif ai_probability >= 40:
+        classification, confidence = "Uncertain", "Low"
+    elif ai_probability >= 20:
+        classification, confidence = "Possibly Human-Written", "Medium"
     else:
-        ai_probability = 50.0
-
-    # Classification thresholds
-    if ai_probability >= 70:
-        classification = "Likely AI-Generated"
-        confidence = "High"
-    elif ai_probability >= 50:
-        classification = "Possibly AI-Generated"
-        confidence = "Medium"
-    elif ai_probability >= 30:
-        classification = "Possibly Human-Written"
-        confidence = "Low"
-    else:
-        classification = "Likely Human-Written"
-        confidence = "High"
+        classification, confidence = "Likely Human-Written", "High"
 
     return {
         'ai_probability': ai_probability,
@@ -228,10 +236,10 @@ def analyze_text(text):
         'text_length': len(text),
         'word_count': len(text.split()),
         'sentence_count': len(sent_tokenize(text)),
-        'features': {k: round(v, 4) if isinstance(v, float) else v
-                     for k, v in feature_dict.items()},
+        'features': {},
         'patterns': patterns,
-        'ml_model_used': MODEL_LOADED,
+        'ml_model_used': True,
+        'model': 'chatgpt-detector-roberta',
     }
 
 # Sample texts for demo
