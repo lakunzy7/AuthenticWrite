@@ -147,9 +147,9 @@ Then start the development server:
 npm start
 ```
 
-Your browser should automatically open `http://localhost:3000` with the app running.
+Your browser should automatically open `http://localhost:7000` with the app running.
 
-> **If port 3000 is busy**, the terminal will ask if you want to use a different port. Type `Y` and press Enter.
+> The frontend dev server port is pinned to **7000** via `frontend/authenticwrite/.env` (`PORT=7000`). Change that file if you need a different port.
 
 ---
 
@@ -171,7 +171,7 @@ This lets you analyze text on any webpage without leaving the page.
 
 ### Web App (Frontend)
 
-1. Open `http://localhost:3000` in your browser
+1. Open `http://localhost:7000` in your browser
 2. Paste text into the text box, or upload a file (PDF, DOCX, TXT, etc.)
 3. Click **Analyze** — you'll see:
    - AI probability percentage
