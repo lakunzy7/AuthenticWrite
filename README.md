@@ -77,7 +77,15 @@ First install takes **5–10 minutes** (large wheels). On slow networks use:
 pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 ```
 
-### 3. Start the backend
+### 3. Download NLTK data (one-time)
+
+The backend uses NLTK for sentence tokenization. Download its data once:
+
+```bash
+python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('stopwords')"
+```
+
+### 4. Start the backend
 
 ```bash
 python app.py
@@ -95,7 +103,7 @@ Detector model ready.
 
 Keep this terminal open and move to the frontend.
 
-### 4. Set up the frontend (React)
+### 5. Set up the frontend (React)
 
 In a new terminal:
 
@@ -105,9 +113,9 @@ npm install
 npm start
 ```
 
-App opens at **http://localhost:7000** (port set in `frontend/authenticwrite/.env`).
+`npm install` takes 2–5 minutes the first time. The app then opens at **http://localhost:7000** (port set in `frontend/authenticwrite/.env`).
 
-### 5. (Optional) Install the browser extension
+### 6. (Optional) Install the browser extension
 
 1. Copy the `browser-extension/` folder somewhere permanent (e.g. your Desktop).
 2. Open Chrome → `chrome://extensions/`
@@ -116,7 +124,36 @@ App opens at **http://localhost:7000** (port set in `frontend/authenticwrite/.en
 5. Pin the AuthentiWrite icon via the 🧩 menu.
 6. On any webpage, **select text** (50+ characters), click the extension icon, and hit **Analyze Selected Text**. The backend must be running.
 
-> **WSL note:** Load the extension from the *Windows* filesystem, not from `/home/...` — Chrome on Windows cannot reliably load extensions from inside WSL.
+> **WSL note:** Load the extension from the *Windows* filesystem, not from `/home/...` — Chrome on Windows cannot reliably load extensions from inside WSL. Copy the folder over once:
+> ```bash
+> cp -r browser-extension /mnt/c/Users/<your-windows-user>/Desktop/AuthentiWrite-Extension
+> ```
+
+---
+
+## Daily Startup (After Initial Setup)
+
+Once installed, you only need two terminals to run the app each time:
+
+**Terminal 1 — backend:**
+```bash
+cd backend
+source venv/bin/activate    # Windows: venv\Scripts\activate
+python app.py
+```
+
+**Terminal 2 — frontend:**
+```bash
+cd frontend/authenticwrite
+npm start
+```
+
+Then open **http://localhost:7000**. Stop with `Ctrl+C` in each terminal.
+
+If port 7000 is occupied by an old process:
+```bash
+lsof -ti:7000 | xargs -r kill -9
+```
 
 ---
 
