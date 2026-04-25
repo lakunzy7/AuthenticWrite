@@ -133,7 +133,27 @@ npm start
 
 ## Daily Startup (After Initial Setup)
 
-Once installed, you only need two terminals to run the app each time:
+The easiest way is the bundled script, which starts both services in the background, waits until they're healthy, and prints the URLs:
+
+```bash
+./start.sh
+```
+
+Stop them again with:
+
+```bash
+./stop.sh
+```
+
+Logs go to `logs/backend.log` and `logs/frontend.log`. Tail them in real time:
+
+```bash
+tail -f logs/backend.log logs/frontend.log
+```
+
+### Manual two-terminal alternative
+
+If you'd rather see the output live in your terminals:
 
 **Terminal 1 — backend:**
 ```bash
@@ -148,11 +168,11 @@ cd frontend/authenticwrite
 npm start
 ```
 
-Then open **http://localhost:7000**. Stop with `Ctrl+C` in each terminal.
+Stop each with `Ctrl+C`.
 
-If port 7000 is occupied by an old process:
+If port 7000 or 5000 is stuck on an old process:
 ```bash
-lsof -ti:7000 | xargs -r kill -9
+./stop.sh    # cleans both ports
 ```
 
 ---

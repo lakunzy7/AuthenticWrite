@@ -12,6 +12,10 @@ backend/*.pkl
 # Uploads
 backend/uploads/
 
+# Runtime artifacts from start.sh
+logs/
+.pids/
+
 # Environment
 .env
 *.env
