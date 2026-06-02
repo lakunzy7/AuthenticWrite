@@ -22,6 +22,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write  # For Trivy scan upload
 
     steps:
       - name: Checkout
@@ -63,8 +64,35 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Scan backend image with Trivy
+      - name: Run Trivy vulnerability scan on backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-backend.sarif'
+
+      # Scan frontend image with Trivy
+      - name: Run Trivy vulnerability scan on frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-frontend.sarif'
+
+      # Upload scan results to GitHub Security tab
+      - name: Upload Trivy backend scan to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-backend.sarif'
+
+      - name: Upload Trivy frontend scan to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-frontend.sarif'
+
       # Update deployment repo with new image tags
-      - name: Update deployment repo
+      - name: Update deployment repo kustomize overlays
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
@@ -72,30 +100,33 @@ jobs:
           BACKEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}"
           FRONTEND_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}"
 
+          # Clone multi-cluster-deployment repo
           git clone https://x-access-token:${{ secrets.GITOPS_REPO_TOKEN }}@github.com/lakunzy7/multi-cluster-deployment.git deployment-repo
           cd deployment-repo
 
           # Update dev overlay
+          cd kubernetes/overlays/dev
           kustomize edit set image \
-            backend=${BACKEND_IMAGE} \
-            frontend=${FRONTEND_IMAGE} \
-            -k eshop-config/overlays/dev
+            ghcr.io/lakunzy7/authenticwrite/backend=${BACKEND_IMAGE} \
+            ghcr.io/lakunzy7/authenticwrite/frontend=${FRONTEND_IMAGE}
+          cd ../../..
 
           # Update staging overlay
+          cd kubernetes/overlays/staging
           kustomize edit set image \
-            backend=${BACKEND_IMAGE} \
-            frontend=${FRONTEND_IMAGE} \
-            -k eshop-config/overlays/staging
+            ghcr.io/lakunzy7/authenticwrite/backend=${BACKEND_IMAGE} \
+            ghcr.io/lakunzy7/authenticwrite/frontend=${FRONTEND_IMAGE}
+          cd ../../..
 
-          # Update prod overlay (pins same image, Kargo controls promotion)
+          # Update prod overlay (Kargo controls promotion from staging)
+          cd kubernetes/overlays/prod
           kustomize edit set image \
-            backend=${BACKEND_IMAGE} \
-            frontend=${FRONTEND_IMAGE} \
-            -k eshop-config/overlays/prod
+            ghcr.io/lakunzy7/authenticwrite/backend=${BACKEND_IMAGE} \
+            ghcr.io/lakunzy7/authenticwrite/frontend=${FRONTEND_IMAGE}
+          cd ../../..
 
-          git add eshop-config/overlays/dev/kustomization.yaml
-          git add eshop-config/overlays/staging/kustomization.yaml
-          git add eshop-config/overlays/prod/kustomization.yaml
+          # Stage and push changes
+          git add kubernetes/overlays/*/kustomization.yaml
 
           git commit -m "chore: update AuthenticWrite images to ${{ github.sha }}" || true
           git push origin main
