@@ -12,7 +12,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME_LOWER: ghcr.io/${{ github.repository_owner }}/authenticwrite
 
 jobs:
   metadata:
@@ -28,8 +28,8 @@ jobs:
         run: |
           TAG="${{ github.sha }}"
           SHORT_SHA="${TAG:0:8}"
-          backend_image="${{ env.REGISTRY }}/${{ github.repository }}/backend:${SHORT_SHA}"
-          frontend_image="${{ env.REGISTRY }}/${{ github.repository }}/frontend:${SHORT_SHA}"
+          backend_image="${{ env.IMAGE_NAME_LOWER }}/backend:${SHORT_SHA}"
+          frontend_image="${{ env.IMAGE_NAME_LOWER }}/frontend:${SHORT_SHA}"
           echo "backend_image=${backend_image}" >> $GITHUB_OUTPUT
           echo "frontend_image=${frontend_image}" >> $GITHUB_OUTPUT
           echo "image_tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
@@ -62,9 +62,9 @@ jobs:
           push: true
           tags: |
             ${{ needs.metadata.outputs.backend_image }}
-            ${{ env.REGISTRY }}/${{ github.repository }}/backend:latest
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/backend:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/backend:buildcache,mode=max
+            ${{ env.IMAGE_NAME_LOWER }}/backend:latest
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME_LOWER }}/backend:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME_LOWER }}/backend:buildcache,mode=max
 
   build-frontend:
     name: Build frontend image
@@ -94,9 +94,9 @@ jobs:
           push: true
           tags: |
             ${{ needs.metadata.outputs.frontend_image }}
-            ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/frontend:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/frontend:buildcache,mode=max
+            ${{ env.IMAGE_NAME_LOWER }}/frontend:latest
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME_LOWER }}/frontend:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME_LOWER }}/frontend:buildcache,mode=max
 
   scan-backend:
     name: Scan backend image
