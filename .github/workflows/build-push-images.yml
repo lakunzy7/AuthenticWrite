@@ -112,7 +112,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.35.0
         env:
           TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          TRIVY_PASSWORD: ${{ secrets.TRIVY_TOKEN }}
         with:
           image-ref: ${{ needs.metadata.outputs.backend_image }}
           format: sarif
@@ -136,7 +136,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.35.0
         env:
           TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          TRIVY_PASSWORD: ${{ secrets.TRIVY_TOKEN }}
         with:
           image-ref: ${{ needs.metadata.outputs.frontend_image }}
           format: sarif
