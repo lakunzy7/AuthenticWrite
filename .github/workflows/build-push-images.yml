@@ -105,6 +105,9 @@ jobs:
     permissions:
       contents: read
       security-events: write
+    env:
+      TRIVY_USERNAME: ${{ github.actor }}
+      TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Run Trivy scan on backend image
         uses: aquasecurity/trivy-action@0.35.0
@@ -114,7 +117,6 @@ jobs:
           output: trivy-backend.sarif
           severity: HIGH,CRITICAL
           exit-code: '0'
-          github-pat: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Trivy results for backend
         if: always()
@@ -130,6 +132,9 @@ jobs:
     permissions:
       contents: read
       security-events: write
+    env:
+      TRIVY_USERNAME: ${{ github.actor }}
+      TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Run Trivy scan on frontend image
         uses: aquasecurity/trivy-action@0.35.0
@@ -139,7 +144,6 @@ jobs:
           output: trivy-frontend.sarif
           severity: HIGH,CRITICAL
           exit-code: '0'
-          github-pat: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Trivy results for frontend
         if: always()
