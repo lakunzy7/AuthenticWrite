@@ -114,8 +114,7 @@ jobs:
           output: trivy-backend.sarif
           severity: HIGH,CRITICAL
           exit-code: '0'
-          registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          github-pat: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Trivy results for backend
         if: always()
@@ -140,8 +139,7 @@ jobs:
           output: trivy-frontend.sarif
           severity: HIGH,CRITICAL
           exit-code: '0'
-          registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          github-pat: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Trivy results for frontend
         if: always()
