@@ -291,7 +291,7 @@ function App() {
     if (textToAnalyze.trim().length < 50) { setError('Text must be at least 50 characters'); return; }
     setLoading(true); setError(''); setResult(null);
     try {
-      const response = await fetch('http://localhost:5000/analyze', {
+      const response = await fetch('/api/analyze', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: textToAnalyze, privacy_mode: privacyMode })
       });
@@ -311,7 +311,7 @@ function App() {
       const formData = new FormData();
       formData.append('file', file);
       setUploadProgress(50);
-      const response = await fetch('http://localhost:5000/upload', { method: 'POST', body: formData });
+      const response = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await response.json();
       setUploadProgress(80);
       if (!response.ok) throw new Error(data.error || 'File upload failed');
@@ -326,7 +326,7 @@ function App() {
   const handleLoadSample = async (type: 'ai' | 'human') => {
     setLoading(true); setError('');
     try {
-      const response = await fetch(`http://localhost:5000/sample-text?type=${type}`);
+      const response = await fetch(`/api/sample-text?type=${type}`);
       if (!response.ok) { const d = await response.json(); throw new Error(d.error || 'Failed'); }
       const data = await response.json();
       setText(data.text);
@@ -353,7 +353,7 @@ function App() {
     if (!text.trim()) { setError('Please enter text to fact-check'); return; }
     setFactChecking(true); setError('');
     try {
-      const response = await fetch('http://localhost:5000/fact-check', {
+      const response = await fetch('/api/fact-check', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, privacy_mode: privacyMode })
       });
@@ -368,7 +368,7 @@ function App() {
   const handleDownloadReport = async () => {
     if (!result) return;
     try {
-      const response = await fetch('http://localhost:5000/generate-report', {
+      const response = await fetch('/api/generate-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ analysis: result })
       });
@@ -385,7 +385,7 @@ function App() {
     if (!text.trim()) { setError('Please enter text to analyze'); return; }
     setQualityLoading(true); setError('');
     try {
-      const response = await fetch('http://localhost:5000/quality-analysis', {
+      const response = await fetch('/api/quality-analysis', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, privacy_mode: privacyMode })
       });
@@ -404,7 +404,7 @@ function App() {
     try {
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) formData.append('files', files[i]);
-      const response = await fetch('http://localhost:5000/batch-analyze', { method: 'POST', body: formData });
+      const response = await fetch('/api/batch-analyze', { method: 'POST', body: formData });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Batch analysis failed');
       setBatchResult(data);
