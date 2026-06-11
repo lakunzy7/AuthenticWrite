@@ -133,6 +133,7 @@ tokenizer = AutoTokenizer.from_pretrained(DETECTOR_MODEL_NAME)
 detector_model = AutoModelForSequenceClassification.from_pretrained(DETECTOR_MODEL_NAME)
 detector_model.eval()
 print("Detector model ready.")
+MODEL_LOADED = True
 
 
 def _score_chunk(input_ids, attention_mask):
